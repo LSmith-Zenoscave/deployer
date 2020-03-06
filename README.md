@@ -9,6 +9,9 @@ run:
 ```bash
 pip3 install -r requirements.txt # get fabric and other deps
 rm -i curr_commands.pkl # remove the current script FSM.
-python3 notes.py # create new ssh'ed `script-out.sh` from commands
+python3 deployer.py # create new ssh'ed `script-out.sh` from commands
 bash ./script-out.sh # run those commands again. with flow control on exit codes
 ```
+
+see `python3 deployer.py -h` for help
+

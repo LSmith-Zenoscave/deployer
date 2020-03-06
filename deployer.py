@@ -19,16 +19,19 @@ config = {
 def main():
     parser = argparse.ArgumentParser(description='deploy with confidence')
     parser.add_argument('--output', '-o', help='output file save location')
-    parser.add_argument('--commands', '-c', help='pickled command FSM file location')
-    parser.add_argument('--start', '-s', help='start uuid for deployment chain')
-    parser.add_argument('--unattended', '-u', action='store_true')
+    parser.add_argument('--commands', '-c',
+                        help='pickled command FSM file location')
+    parser.add_argument(
+        '--start', '-s', help='start uuid for deployment chain')
+    parser.add_argument('--unattended', '-u', action='store_true',
+                        help='dont launch repl after known command states finish')
     parser.add_argument('--host', help='SSH host to deploy on')
 
     args = vars(parser.parse_args(sys.argv[1:]))
     for arg in args:
         if args[arg] is not None:
             config[arg] = args[arg]
-     
+
     start = config['start']
     start = None if start == 'None' or start is None else uuid.UUID(start)
 
@@ -45,6 +48,7 @@ def main():
         with open(config['commands'], "wb") as pkl:
             pickle.dump((commands, start_idx), pkl)
 
+
 def make_script(commands, start_idx):
     prev_exit = 0
     prev_command = None
@@ -52,9 +56,10 @@ def make_script(commands, start_idx):
     while curr_idx is not None and curr_idx in commands:
         next_command = commands[curr_idx]
         print(f"Running: {next_command['desc']}")
-        try: 
-            result = Connection(config['host']).run(next_command["command"], pty=True, warn=False)
-        except UnexpectedExit as ex: 
+        try:
+            result = Connection(config['host']).run(
+                next_command["command"], pty=True, warn=False)
+        except UnexpectedExit as ex:
             result = ex.result
         prev_command = next_command
         prev_exit = result.exited
@@ -91,15 +96,18 @@ $ deployer -s '{curr_idx}'
         if not keep_going:
             break
         try:
-            result = Connection('localhost').run(command["command"], pty=True, warn=False)
+            result = Connection('localhost').run(
+                command["command"], pty=True, warn=False)
         except UnexpectedExit as ex:
             result = ex.result
-        commands, prev_exit = updateCommands(commands, prev_command, prev_exit, command, result)
+        commands, prev_exit = updateCommands(
+            commands, prev_command, prev_exit, command, result)
         prev_command = command
         if start_idx is None:
             start_idx = command["id"]
 
     return commands, start_idx
+
 
 def getCommand():
     command_lines = []
@@ -157,6 +165,7 @@ def updateCommands(commands, prev_command, prev_exit, command, result):
     commands[command["id"]] = command
     return commands, result.exited
 
+
 def parseCommands(commands, start_id):
     func_template = """
 function command_{idx}() {{
@@ -189,7 +198,8 @@ function command_{idx}() {{
             for code, next_idx in seq.items()
             if code not in meta_info and next_idx is not None
         )
-        func = func_template.format(idx=idx, desc=desc, command=command, results=results)
+        func = func_template.format(
+            idx=idx, desc=desc, command=command, results=results)
         script += func
 
     script += f"""
@@ -204,6 +214,7 @@ exit ${{exit_code}}
 """
 
     return script
+
 
 if __name__ == '__main__':
     main()
