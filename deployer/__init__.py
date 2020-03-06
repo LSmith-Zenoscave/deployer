@@ -2,4 +2,4 @@
 
 __author__ = """Luke Smith"""
 __email__ = 'lsmith@zenoscave.com'
-__version__ = '0.1.4'
+__version__ = '0.1.5'
