@@ -75,7 +75,7 @@ def get_command():
         while True:
             try:
                 line = input("> ")
-            except EOFError:
+            except (StopIteration, EOFError):
                 print()
                 break
             command_lines.append(line)
