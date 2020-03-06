@@ -1,20 +1,48 @@
+#!python3
+import argparse
 import pickle
+import sys
 import uuid
+
 from fabric import Connection
 from invoke import UnexpectedExit
 
+config = {
+    'output': 'script-out.sh',
+    'commands': 'curr_commands.pkl',
+    'start': None,
+    'unattended': False,
+    'host': 'localhost',
+}
+
+
 def main():
-    with open('script-out.sh', 'w') as script_file:
+    parser = argparse.ArgumentParser(description='deploy with confidence')
+    parser.add_argument('--output', '-o', help='output file save location')
+    parser.add_argument('--commands', '-c', help='pickled command FSM file location')
+    parser.add_argument('--start', '-s', help='start uuid for deployment chain')
+    parser.add_argument('--unattended', '-u', action='store_true')
+    parser.add_argument('--host', help='SSH host to deploy on')
+
+    args = vars(parser.parse_args(sys.argv[1:]))
+    for arg in args:
+        if args[arg] is not None:
+            config[arg] = args[arg]
+     
+    start = config['start']
+    start = None if start == 'None' or start is None else uuid.UUID(start)
+
+    with open(config['output'], 'w') as script_file:
         try:
-            with open("curr_commands.pkl", "rb") as pkl:
+            with open(config['commands'], "rb") as pkl:
                 commands, start_idx = pickle.load(pkl)
         except IOError:
             commands, start_idx = {}, None
 
-        commands, start_idx = make_script(commands, start_idx)
+        commands, start_idx = make_script(commands, start or start_idx)
         script_file.write(parseCommands(commands, start_idx))
 
-        with open("curr_commands.pkl", "wb") as pkl:
+        with open(config['commands'], "wb") as pkl:
             pickle.dump((commands, start_idx), pkl)
 
 def make_script(commands, start_idx):
@@ -25,7 +53,7 @@ def make_script(commands, start_idx):
         next_command = commands[curr_idx]
         print(f"Running: {next_command['desc']}")
         try: 
-            result = Connection('localhost').run(next_command["command"], pty=True, warn=False)
+            result = Connection(config['host']).run(next_command["command"], pty=True, warn=False)
         except UnexpectedExit as ex: 
             result = ex.result
         prev_command = next_command
@@ -33,7 +61,30 @@ def make_script(commands, start_idx):
         if result.exited in next_command:
             curr_idx = next_command[result.exited]
         else:
-            curr_idx = None
+            break
+
+    if config['unattended']:
+        print("The script finished with exit code", prev_exit)
+        if prev_exit != 0:
+            print(f"""
+Warning!!! The script did not succeed (possibly)
+If that is the case, you have a few options
+1. Run the failed command manually and resume the unnattended deployment from the next state:
+i.e.
+$ {next_command["command"]}
+$ deployer -u -s '{next_command.get(0, None)}'
+   
+2. Rerun from the same starting point as the failed command
+$ deployer -u -s '{curr_idx}'
+
+3. Do either of the above but with repl feed back for building a more robust deployment (remove the -u flag).
+$ {next_command["command"]}
+$ deployer -s '{next_command.get(0, None)}'
+~or~   
+$ deployer -s '{curr_idx}'
+
+""")
+        return commands, start_idx
 
     while True:
         command, keep_going = getCommand()
