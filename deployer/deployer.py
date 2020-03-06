@@ -1,55 +1,12 @@
-#!python3
-import argparse
-import pickle
-import sys
+"""FSM and REPL functinality for deployer-fsm."""
 import uuid
 
 from fabric import Connection
 from invoke import UnexpectedExit
 
-config = {
-    'output': 'script-out.sh',
-    'commands': 'curr_commands.pkl',
-    'start': None,
-    'unattended': False,
-    'host': 'localhost',
-}
 
-
-def main():
-    parser = argparse.ArgumentParser(description='deploy with confidence')
-    parser.add_argument('--output', '-o', help='output file save location')
-    parser.add_argument('--commands', '-c',
-                        help='pickled command FSM file location')
-    parser.add_argument(
-        '--start', '-s', help='start uuid for deployment chain')
-    parser.add_argument('--unattended', '-u', action='store_true',
-                        help='dont launch repl after known command states finish')
-    parser.add_argument('--host', help='SSH host to deploy on')
-
-    args = vars(parser.parse_args(sys.argv[1:]))
-    for arg in args:
-        if args[arg] is not None:
-            config[arg] = args[arg]
-
-    start = config['start']
-    start = None if start == 'None' or start is None else uuid.UUID(start)
-
-    with open(config['output'], 'w') as script_file:
-        try:
-            with open(config['commands'], "rb") as pkl:
-                commands, start_idx = pickle.load(pkl)
-        except IOError:
-            commands, start_idx = {}, None
-
-        commands, start_idx = make_script(commands, start or start_idx)
-        script_file.write(parseCommands(commands, start_idx))
-
-        with open(config['commands'], "wb") as pkl:
-            pickle.dump((commands, start_idx), pkl)
-
-
-def make_script(commands, start_idx):
+def make_script(commands, start_idx, config):
+    """Script run/create entry point."""
     prev_exit = 0
     prev_command = None
     curr_idx = start_idx
@@ -74,25 +31,25 @@ def make_script(commands, start_idx):
             print(f"""
 Warning!!! The script did not succeed (possibly)
 If that is the case, you have a few options
-1. Run the failed command manually and resume the unnattended deployment from the next state:
+1. Run the failed command manually and resume the unnattended deployment:
 i.e.
 $ {next_command["command"]}
-$ deployer -u -s '{next_command.get(0, None)}'
-   
-2. Rerun from the same starting point as the failed command
-$ deployer -u -s '{curr_idx}'
+$ deployer-fsm -u -s '{next_command.get(0, None)}'
 
-3. Do either of the above but with repl feed back for building a more robust deployment (remove the -u flag).
+2. Rerun from the same starting point as the failed command:
+$ deployer-fsm -u -s '{curr_idx}'
+
+3. Do either of the above but with repl feed back (remove the -u flag).
 $ {next_command["command"]}
-$ deployer -s '{next_command.get(0, None)}'
-~or~   
-$ deployer -s '{curr_idx}'
+$ deployer-fsm -s '{next_command.get(0, None)}'
+~or~
+$ deployer-fsm -s '{curr_idx}'
 
 """)
         return commands, start_idx
 
     while True:
-        command, keep_going = getCommand()
+        command, keep_going = get_command()
         if not keep_going:
             break
         try:
@@ -100,7 +57,7 @@ $ deployer -s '{curr_idx}'
                 command["command"], pty=True, warn=False)
         except UnexpectedExit as ex:
             result = ex.result
-        commands, prev_exit = updateCommands(
+        commands, prev_exit = update_commands(
             commands, prev_command, prev_exit, command, result)
         prev_command = command
         if start_idx is None:
@@ -109,11 +66,12 @@ $ deployer -s '{curr_idx}'
     return commands, start_idx
 
 
-def getCommand():
+def get_command():
+    """gets a bash command as a string from a small user repl."""
     command_lines = []
     if query_yes_no("Enter another command?", default="yes"):
         desc = input("Enter one-line description of command: ")
-        print("Enter/Paste your command. Ctrl-D (Ctrl-Z on windows) to finish.")
+        print("Enter/Paste your command. Ctrl-D (Ctrl-Z on windows) to finish")
         while True:
             try:
                 line = input("> ")
@@ -127,6 +85,9 @@ def getCommand():
 
 
 def query_yes_no(prompt, default=None):
+    """CLI [y/n] prompt with configurable default.
+    comparable to apt's prompt for yes/no
+    """
     yes_resp = ["yes", "y", "ye"]
     no_resp = ["no", "n"]
 
@@ -145,13 +106,15 @@ def query_yes_no(prompt, default=None):
         choice = input(prompt).lower()
         if default is not None and choice == '':
             return default in yes_resp
-        elif choice in valid:
+        if choice in valid:
             return choice in yes_resp
-        else:
-            print("Please respond with 'yes'(y) or 'no'(n).")
+        print("Please respond with 'yes'(y) or 'no'(n).")
 
 
-def updateCommands(commands, prev_command, prev_exit, command, result):
+def update_commands(commands, prev_command, prev_exit, command, result):
+    """Edits the FSM for commands.
+    Bases new connection on previous state, edge and current state.
+    """
     if result.exited != 0:
         print(f"The last command failed (exit code = {result.exited})...")
         if query_yes_no("Discard command and halt?", default="yes"):
@@ -166,7 +129,8 @@ def updateCommands(commands, prev_command, prev_exit, command, result):
     return commands, result.exited
 
 
-def parseCommands(commands, start_id):
+def parse_commands(commands, start_id):
+    """Command FSM to bash script generator."""
     func_template = """
 function command_{idx}() {{
 
@@ -214,7 +178,3 @@ exit ${{exit_code}}
 """
 
     return script
-
-
-if __name__ == '__main__':
-    main()
