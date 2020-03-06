@@ -3,12 +3,15 @@ python:
 - 3.8
 - 3.7
 - 3.6
-- 3.5
-install: pip install -U tox-travis coverage codecov
+cache:
+  apt: true
+  directories:
+  - .tox
+install: pip install -U tox-travis codecov
 script:
 - tox
-- coverage run --source deployer -m pytest
 after_success:
+- coverage combine .tox/py*/.coverage
 - codecov
 deploy:
   provider: pypi
