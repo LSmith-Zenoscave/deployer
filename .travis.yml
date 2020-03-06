@@ -14,8 +14,7 @@ deploy:
   provider: pypi
   distributions: sdist bdist_wheel
   user: lsmith_zeno
-  password:
-    secure: fd4rE+mAIlKMvQnAohCRur3Nrd53y44LJkfTaqLJricEl5LoYNPgGze4M4O+Ostn18aPUd3Ca2CPSbWDIeXrmvl4bXgjr6FM71CzlXzDZ0tYusRE+FSDITHQQpgVZtIrNPb32b+wtY7/olsLT2xFjwVwXQAEv4t62sKr4l0rOTB+TH6M8DGmIrmAK9ULkZWZorGsFBOQWED3oNvDwWblJ3kxEnpTFG1c6GNOhO8fki7WxQH7UkYJUcWJmGxwK65cdn3tZe5u0btMBfqL4JIc3q1UxL57BIT80FjO9wX/tNmvSZV2QOXFLiAXfb4mPPVVLfddfi+NeUjwSGK1oBS5nrzc5pjNZED84U1/NR9fyhHJq1s3MV21wRvLOLZJz4YcEJPh3b3RnTwg5sum9icpk1l5qck2MX/4yeu3pdw0ECwlKLJnc83btgJgiq779nE6pOIWvX1GA15AWWuG6vvp8DYvCwHhW3aViKXb/gAm5HnvR2RO9TxT2atqw9ncj0375dgHKHl2Vg5jDjIw0M35ucS24okqEyHiX9mFBqohmsAmxig6Fc8wVEPvXc2vZQWaapmBdNpPHf0Q9auE7Hd4/GHpskjx4JhhFGjbjD7+kRbTAnhc8eyMHnR6t0vjERLI3AVC1GV4JS8Y+ZWf1kQ64bNT41oIazU0NSwLRzK2Nn4=
+  password: ${PYPI_PASSWORD}
   on:
     tags: true
     repo: LSmith-Zenoscave/deployer
