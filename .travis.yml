@@ -3,19 +3,21 @@ python:
 - 3.8
 - 3.7
 - 3.6
-- 3.5
-install: pip install -U tox-travis coverage codecov
-script: 
-  - tox
-  - coverage run --source deployer -m pytest
+cache:
+  apt: true
+  directories:
+  - .tox
+install: pip install -U tox-travis codecov
+script:
+- tox
 after_success:
-  - codecov
+- coverage combine .tox/py*/.coverage
+- codecov
 deploy:
   provider: pypi
   distributions: sdist bdist_wheel
   user: lsmith_zeno
-  password:
-    secure: xE8UbCkpraoqoaBG9zNGeqR56GclqpnzlkJwGW4eFFOGEvWo0UVEZX7UTCjAKyzcTA5N1jZ3ZswyYh15nNws5bgI0Z1MW+0BkA9Gg3yPQsTtKXuwg3Cgn/MF1Hh0ux+LHnMLnWTceHalX9ask2DZFQY1iYY0ndbsHXpExckT+RoQG3sFWg9fViKdr9im4wnTt3Pn24wdzJf9B/R++XERr79Dq6jLMEjoTS9G1DBmjW95KKi581FhQKyTSVdD2g2r/wVtfzGeyRr+f+E2SgjfKYty+VudkXshJjzBjG9LGGGBTRL7e50MpS5BeyZbaV4Ik918kOUPlx29f1rjKwPVWvkF+KKozG77SIhkBfOw5WIbGgh3zvrNgfuRLYcdcWv/0mB3HfJKvBJddGxrS3bth/L1DH5u/aKOz5G34L3bLmB90Zq6rWvLd+Wrd0AZRroxVGbXw1MXTD4jXr5IXR85eyPNkt8XFRTFqmesQSch0PehzybJnLn8sswG8bc4GVLX/8IOgaGg2xBV8vb0uurXdMcI++sTQkLfrJvFambAD6VyBT85+ey39Gc1/4Cu71ADpUrtVpZ9IosKo+ESuPs4tTNSXJ6BQhxzHMQ2jOKdRaJ1l2cAjDQD56u++iu9vO3KhXoMzLq0LxJaQcsSNlvCuMsSaYvXJ1gEnltgOoB05jY=
+  password: ${PYPI_PASSWORD}
   on:
     tags: true
     repo: LSmith-Zenoscave/deployer
