@@ -36,7 +36,7 @@ def main(*args):
     args = vars(parser.parse_args(args[1:]))
     config = dict(DEFAULT_CONFIG, **{
         arg: val
-        for arg, val in args
+        for arg, val in args.items()
         if val is not None
     })
 

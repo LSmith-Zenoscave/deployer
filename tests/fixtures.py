@@ -20,6 +20,9 @@ def pytest_generate_tests(metafunc):
     https://docs.pytest.org/en/latest/example/parametrize.html#a-quick-port-of-testscenarios
     """
 
+    if metafunc.cls is None:
+        return
+
     idlist = []
     argvalues = []
     for scenario_name, scenario in metafunc.cls.scenarios.items():
