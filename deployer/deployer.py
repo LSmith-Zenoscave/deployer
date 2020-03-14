@@ -4,6 +4,8 @@ import uuid
 from fabric import Connection
 from invoke import UnexpectedExit
 
+from deployer.models import Command
+
 
 def make_script(commands, start_idx, config):
     """Script run/create entry point."""
@@ -12,16 +14,16 @@ def make_script(commands, start_idx, config):
     curr_idx = start_idx
     while curr_idx is not None and curr_idx in commands:
         next_command = commands[curr_idx]
-        print(f"Running: {next_command['desc']}")
+        print(f"Running: {next_command.desc}")
         try:
             result = Connection(config['host']).run(
-                next_command["command"], pty=True, warn=False)
+                next_command.command, pty=True, warn=False)
         except UnexpectedExit as ex:
             result = ex.result
         prev_command = next_command
         prev_exit = result.exited
-        if result.exited in next_command:
-            curr_idx = next_command[result.exited]
+        if result.exited in next_command.state:
+            curr_idx = next_command.state[result.exited]
         else:
             break
 
@@ -33,15 +35,15 @@ Warning!!! The script did not succeed (possibly)
 If that is the case, you have a few options
 1. Run the failed command manually and resume the unnattended deployment:
 i.e.
-$ {next_command["command"]}
-$ deployer-fsm -u -s '{next_command.get(0, None)}'
+$ {next_command.command}
+$ deployer-fsm -u -s '{next_command.state.get(0, None)}'
 
 2. Rerun from the same starting point as the failed command:
 $ deployer-fsm -u -s '{curr_idx}'
 
 3. Do either of the above but with repl feed back (remove the -u flag).
-$ {next_command["command"]}
-$ deployer-fsm -s '{next_command.get(0, None)}'
+$ {next_command.command}
+$ deployer-fsm -s '{next_command.state.get(0, None)}'
 ~or~
 $ deployer-fsm -s '{curr_idx}'
 
@@ -54,14 +56,14 @@ $ deployer-fsm -s '{curr_idx}'
             break
         try:
             result = Connection('localhost').run(
-                command["command"], pty=True, warn=False)
+                command.command, pty=True, warn=False)
         except UnexpectedExit as ex:
             result = ex.result
+        if not commands:
+            start_idx = command.cmd_id
         commands, prev_exit = update_commands(
             commands, prev_command, prev_exit, command, result)
         prev_command = command
-        if start_idx is None:
-            start_idx = command["id"]
 
     return commands, start_idx
 
@@ -80,7 +82,7 @@ def get_command():
                 break
             command_lines.append(line)
         command = "\n".join(command_lines)
-        return {"command": command, "id": uuid.uuid4(), "desc": desc}, True
+        return Command(command, desc, cmd_id=uuid.uuid4()), True
     return None, False
 
 
@@ -120,12 +122,12 @@ def update_commands(commands, prev_command, prev_exit, command, result):
         if query_yes_no("Discard command and halt?", default="yes"):
             return commands, result.exited
 
-    if prev_command is not None and "id" in prev_command:
-        prev_command = commands.get(prev_command["id"], prev_command)
-        prev_command[prev_exit] = command["id"]
-        commands[prev_command["id"]] = prev_command
+    if prev_command is not None:
+        prev_command = commands.get(prev_command.cmd_id, prev_command)
+        prev_command.state[prev_exit] = command.cmd_id
+        commands[prev_command.cmd_id] = prev_command
 
-    commands[command["id"]] = command
+    commands[command.cmd_id] = command
     return commands, result.exited
 
 
