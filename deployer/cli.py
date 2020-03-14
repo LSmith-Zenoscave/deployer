@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def main():
+def main(*args):
     """Main deployer-fsm execution function."""
     parser = argparse.ArgumentParser(description="deploy with confidence")
     parser.add_argument("--output", "-o", help="output file save location")
@@ -33,14 +33,22 @@ def main():
     )
     parser.add_argument("--host", help="SSH host to deploy on")
 
-    args = vars(parser.parse_args(sys.argv[1:]))
-    for arg in args:
-        if args[arg] is not None:
-            DEFAULT_CONFIG[arg] = args[arg]
+    args = vars(parser.parse_args(args[1:]))
+    config = dict(DEFAULT_CONFIG, **{
+        arg: val
+        for arg, val in args
+        if val is not None
+    })
 
-    start = DEFAULT_CONFIG["start"]
+    start = config["start"]
     start = None if start == "None" or start is None else uuid.UUID(start)
 
+    run(start, config)
+    return 0
+
+
+def run(start, config):
+    """Wrapper command for making and saving script/pickle data."""
     with open(DEFAULT_CONFIG["output"], "w") as script_file:
         try:
             with open(DEFAULT_CONFIG["commands"], "rb") as pkl:
@@ -49,13 +57,12 @@ def main():
             commands, start_idx = {}, None
 
         start = start or start_idx
-        commands, start_idx = make_script(commands, start, DEFAULT_CONFIG)
+        commands, start_idx = make_script(commands, start, config)
         script_file.write(parse_commands(commands, start_idx))
 
-        with open(DEFAULT_CONFIG["commands"], "wb") as pkl:
+        with open(config["commands"], "wb") as pkl:
             pickle.dump((commands, start_idx), pkl)
-    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(main(*sys.argv))  # pragma: no cover

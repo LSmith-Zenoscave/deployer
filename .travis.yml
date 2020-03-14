@@ -9,9 +9,11 @@ cache:
   - .tox
 install: pip install -U tox-travis codecov
 script:
+- coverage erase
 - tox
-after_success:
 - coverage combine .tox/py*/.coverage
+- coverage report -m --fail-under=80
+after_success:
 - codecov
 deploy:
   provider: pypi
